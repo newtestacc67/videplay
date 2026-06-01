@@ -32,6 +32,20 @@
             border-color: #8b5cf6; /* Tailwind violet-500 */
         }
 
+        /* 하트 애니메이션 */
+        @keyframes heartPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(1); }
+        }
+        .heart-btn {
+            transition: color 0.2s ease;
+        }
+        .heart-btn.active {
+            color: #ef4444; /* Tailwind red-500 */
+            animation: heartPulse 0.3s ease-in-out;
+        }
+
         .gradient-text {
             background: linear-gradient(to right, #a78bfa, #f472b6);
             -webkit-background-clip: text;
@@ -65,8 +79,8 @@
                 <div class="hidden md:block">
                     <div class="ml-10 flex items-baseline space-x-8">
                         <a href="#" class="text-white hover:text-violet-400 px-3 py-2 rounded-md text-sm font-medium transition">홈</a>
-                        <a href="#" class="text-slate-300 hover:text-violet-400 px-3 py-2 rounded-md text-sm font-medium transition">인기 플레이리스트</a>
-                        <a href="#" class="text-slate-300 hover:text-violet-400 px-3 py-2 rounded-md text-sm font-medium transition">보관함</a>
+                        <a href="#" id="navPopular" class="text-slate-300 hover:text-violet-400 px-3 py-2 rounded-md text-sm font-medium transition">인기 플레이리스트</a>
+                        <a href="#" id="navLibrary" class="text-slate-300 hover:text-violet-400 px-3 py-2 rounded-md text-sm font-medium transition">보관함</a>
                     </div>
                 </div>
             </div>
@@ -102,6 +116,10 @@
         </section>
 
         <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            
+            <!-- 섹션 제목 (검색결과, 인기, 보관함 등) -->
+            <h2 id="sectionTitle" class="text-2xl font-bold mb-6 hidden">검색 결과</h2>
+
             <!-- 로딩 상태 -->
             <div id="loader" class="hidden flex-col items-center justify-center py-20">
                 <div class="loader mb-4"></div>
@@ -114,6 +132,8 @@
             </div>
         </section>
     </main>
+
+    <!-- 팝업창 (모달) 영역 (삭제됨 - 실제 기능으로 대체) -->
 
     <footer class="border-t border-slate-800 bg-slate-900 mt-auto py-8">
         <div class="max-w-7xl mx-auto px-4 text-center text-slate-500 text-sm">
@@ -133,6 +153,14 @@
         const loader = document.getElementById('loader');
         const errorMsg = document.getElementById('errorMsg');
         const errorText = errorMsg.querySelector('span');
+        const sectionTitle = document.getElementById('sectionTitle');
+
+        // 메뉴 DOM 요소
+        const navPopular = document.getElementById('navPopular');
+        const navLibrary = document.getElementById('navLibrary');
+        
+        // 보관함 데이터 로드 (로컬 스토리지)
+        let savedPlaylists = JSON.parse(localStorage.getItem('vibePlayLibrary')) || [];
 
         // 에러 메시지 표시/숨기기 함수
         function showError(message) {
@@ -144,7 +172,7 @@
             errorMsg.classList.add('hidden');
         }
 
-        // 스트리밍 청크: 유튜브 데이터 검색 및 처리
+        // 1. 기본 검색 기능
         async function fetchPlaylist() {
             const query = vibeInput.value.trim();
             
@@ -158,9 +186,43 @@
             const searchQuery = encodeURIComponent(query + ' playlist 노래 음악');
             const apiUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=8&q=${searchQuery}&type=video&videoCategoryId=10&key=${YOUTUBE_API_KEY}`;
 
-            // 초기화 및 로딩 시작
+            await fetchDataAndRender(apiUrl, `"${query}" 기분에 맞는 플레이리스트`);
+        }
+
+        // 2. 인기 플레이리스트 가져오기 기능
+        async function fetchPopularPlaylist() {
+            // 차트 인기 동영상 중 음악 카테고리(10) 가져오기
+            const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&videoCategoryId=10&maxResults=8&key=${YOUTUBE_API_KEY}`;
+            vibeInput.value = ''; // 검색창 비우기
+            await fetchDataAndRender(apiUrl, '현재 가장 인기 있는 음악', true);
+        }
+
+        // 3. 보관함(라이브러리) 보여주기 기능
+        function showLibrary() {
             hideError();
             playlistGrid.innerHTML = '';
+            vibeInput.value = '';
+            sectionTitle.textContent = '내 보관함';
+            sectionTitle.classList.remove('hidden');
+
+            if (savedPlaylists.length === 0) {
+                playlistGrid.innerHTML = `
+                    <div class="col-span-full py-16 text-center text-slate-400">
+                        <i class="fa-regular fa-folder-open text-4xl mb-4 opacity-50"></i>
+                        <p>보관함이 비어있습니다.<br>마음에 드는 영상의 하트를 눌러 추가해보세요!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            renderCards(savedPlaylists, false); // 저장된 데이터로 렌더링 (형태가 조금 다름)
+        }
+
+        // 공통 API 통신 및 렌더링 함수
+        async function fetchDataAndRender(apiUrl, titleText, isPopular = false) {
+            hideError();
+            playlistGrid.innerHTML = '';
+            sectionTitle.classList.add('hidden');
             loader.classList.remove('hidden');
             loader.classList.add('flex');
 
@@ -177,33 +239,72 @@
                     return;
                 }
 
-                // 결과 렌더링
-                renderCards(data.items);
+                sectionTitle.textContent = titleText;
+                sectionTitle.classList.remove('hidden');
+                
+                // 인기 동영상 API는 데이터 구조가 조금 달라서 매핑
+                const videos = isPopular ? data.items.map(item => ({
+                    id: { videoId: item.id },
+                    snippet: item.snippet
+                })) : data.items;
+
+                renderCards(videos);
             } catch (error) {
                 console.error('Error fetching data:', error);
                 showError("오류가 발생했습니다: " + error.message);
             } finally {
-                // 로딩 종료
                 loader.classList.add('hidden');
                 loader.classList.remove('flex');
             }
         }
 
+        // 하트 버튼 클릭 처리 (보관함 저장/삭제)
+        function toggleSave(e, videoData) {
+            e.preventDefault(); // 링크 이동 방지
+            e.stopPropagation();
+
+            const btn = e.currentTarget;
+            const videoId = videoData.id.videoId;
+            const index = savedPlaylists.findIndex(v => v.id.videoId === videoId);
+
+            if (index === -1) {
+                // 저장 안 됨 -> 저장하기
+                savedPlaylists.push(videoData);
+                btn.classList.add('active');
+                btn.classList.replace('fa-regular', 'fa-solid');
+            } else {
+                // 이미 저장됨 -> 삭제하기
+                savedPlaylists.splice(index, 1);
+                btn.classList.remove('active');
+                btn.classList.replace('fa-solid', 'fa-regular');
+                
+                // 만약 현재 보관함 화면을 보고 있다면 카드 즉시 제거
+                if (sectionTitle.textContent === '내 보관함') {
+                    showLibrary();
+                }
+            }
+            
+            // 로컬 스토리지에 업데이트
+            localStorage.setItem('vibePlayLibrary', JSON.stringify(savedPlaylists));
+        }
+
+        // 카드 렌더링 함수 (저장 기능 포함)
         function renderCards(videos) {
             videos.forEach(video => {
                 const snippet = video.snippet;
                 const videoId = video.id.videoId;
-                // 해상도 높은 썸네일 우선 사용
                 const thumbnailUrl = snippet.thumbnails.high ? snippet.thumbnails.high.url : snippet.thumbnails.default.url;
                 
-                // 카드 요소 생성
+                // 현재 보관함에 있는지 확인
+                const isSaved = savedPlaylists.some(v => v.id.videoId === videoId);
+                const heartClass = isSaved ? 'fa-solid active' : 'fa-regular text-slate-400 hover:text-white';
+                
                 const card = document.createElement('a');
                 card.href = `https://www.youtube.com/watch?v=${videoId}`;
                 card.target = '_blank';
                 card.rel = 'noopener noreferrer';
-                card.className = 'bg-slate-800 border border-slate-700 rounded-xl overflow-hidden card-hover flex flex-col group block';
+                card.className = 'bg-slate-800 border border-slate-700 rounded-xl overflow-hidden card-hover flex flex-col group block relative';
                 
-                // HTML 구조 삽입
                 card.innerHTML = `
                     <div class="relative w-full aspect-video overflow-hidden">
                         <img src="${thumbnailUrl}" alt="${snippet.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
@@ -213,9 +314,12 @@
                     </div>
                     <div class="p-5 flex-grow flex flex-col justify-between">
                         <div>
-                            <h3 class="text-white font-semibold text-base line-clamp-2 leading-snug mb-2 group-hover:text-violet-400 transition-colors" title="${snippet.title}">
-                                ${snippet.title}
-                            </h3>
+                            <div class="flex justify-between items-start gap-2 mb-2">
+                                <h3 class="text-white font-semibold text-base line-clamp-2 leading-snug group-hover:text-violet-400 transition-colors" title="${snippet.title}">
+                                    ${snippet.title}
+                                </h3>
+                                <button class="save-btn heart-btn p-1 z-10 ${heartClass} fa-heart text-xl" title="보관함에 담기"></button>
+                            </div>
                             <p class="text-slate-400 text-sm flex items-center gap-2">
                                 <i class="fa-brands fa-youtube text-red-500"></i> ${snippet.channelTitle}
                             </p>
@@ -223,18 +327,29 @@
                     </div>
                 `;
                 
+                // 하트 버튼 이벤트 리스너 연결
+                const saveBtn = card.querySelector('.save-btn');
+                saveBtn.addEventListener('click', (e) => toggleSave(e, video));
+
                 playlistGrid.appendChild(card);
             });
         }
 
-        // 버튼 클릭 이벤트
+        // 이벤트 리스너
         searchBtn.addEventListener('click', fetchPlaylist);
-
-        // 엔터키 입력 이벤트
         vibeInput.addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') {
-                fetchPlaylist();
-            }
+            if (e.key === 'Enter') fetchPlaylist();
+        });
+
+        // 메뉴 클릭 이벤트
+        navPopular.addEventListener('click', (e) => {
+            e.preventDefault();
+            fetchPopularPlaylist();
+        });
+
+        navLibrary.addEventListener('click', (e) => {
+            e.preventDefault();
+            showLibrary();
         });
     </script>
 </body>
