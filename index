@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibePlay - 기분 맞춤 플레이리스트</title>
+    <!-- Tailwind CSS (스타일링) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome (아이콘) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: #0f172a; /* Tailwind slate-900 */
+        }
+        
+        .glass-nav {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+            border-color: #8b5cf6; /* Tailwind violet-500 */
+        }
+
+        .gradient-text {
+            background: linear-gradient(to right, #a78bfa, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* 로딩 애니메이션 */
+        .loader {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
+            border-top: 3px solid #a78bfa;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="text-slate-200 min-h-screen flex flex-col antialiased">
+
+    <nav class="glass-nav fixed w-full top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex-shrink-0 flex items-center gap-2 cursor-pointer">
+                    <i class="fa-solid fa-music text-violet-400 text-xl"></i>
+                    <span class="font-bold text-xl tracking-wide text-white">VibePlay</span>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-8">
+                        <a href="#" class="text-white hover:text-violet-400 px-3 py-2 rounded-md text-sm font-medium transition">홈</a>
+                        <a href="#" class="text-slate-300 hover:text-violet-400 px-3 py-2 rounded-md text-sm font-medium transition">인기 플레이리스트</a>
+                        <a href="#" class="text-slate-300 hover:text-violet-400 px-3 py-2 rounded-md text-sm font-medium transition">보관함</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow pt-24 pb-12">
+        <!-- Hero Section -->
+        <section class="text-center px-4 py-16 sm:py-24 max-w-4xl mx-auto">
+            <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight mb-4">
+                당신의 <span class="gradient-text">기분</span>을 음악으로
+            </h1>
+            <p class="text-lg sm:text-xl text-slate-400 mb-10 max-w-2xl mx-auto">
+                지금 어떤 기분이신가요? 상황, 감정, 혹은 날씨를 입력해주세요.<br class="hidden sm:block">
+                AI가 유튜브를 검색해 완벽한 플레이리스트를 만들어 드립니다.
+            </p>
+
+            <!-- 검색창 영역 -->
+            <div class="relative max-w-2xl mx-auto">
+                <div class="flex flex-col sm:flex-row shadow-2xl rounded-2xl overflow-hidden border border-slate-700 focus-within:border-violet-500 transition-colors bg-slate-800/80 backdrop-blur-sm">
+                    <div class="relative flex-grow flex items-center">
+                        <i class="fa-solid fa-magnifying-glass absolute left-5 text-slate-400"></i>
+                        <input type="text" id="vibeInput" 
+                            class="w-full bg-transparent text-white pl-12 pr-4 py-4 sm:py-5 outline-none placeholder-slate-500 text-lg" 
+                            placeholder="예: 비 오는 밤, 혼자 드라이브 할 때 듣는 노래">
+                    </div>
+                    <button id="searchBtn" class="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white font-semibold py-4 sm:py-5 px-8 transition-all">
+                        음악 찾기
+                    </button>
+                </div>
+                <p id="errorMsg" class="text-red-400 text-sm mt-3 hidden text-center font-medium"><i class="fa-solid fa-circle-exclamation mr-1"></i> <span></span></p>
+            </div>
+        </section>
+
+        <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- 로딩 상태 -->
+            <div id="loader" class="hidden flex-col items-center justify-center py-20">
+                <div class="loader mb-4"></div>
+                <p class="text-slate-400 font-medium animate-pulse">유튜브에서 딱 맞는 음악을 찾고 있어요...</p>
+            </div>
+
+            <!-- 결과 그리드 -->
+            <div id="playlistGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- 자바스크립트로 카드가 생성되는 영역 -->
+            </div>
+        </section>
+    </main>
+
+    <footer class="border-t border-slate-800 bg-slate-900 mt-auto py-8">
+        <div class="max-w-7xl mx-auto px-4 text-center text-slate-500 text-sm">
+            <p>&copy; 2026 VibePlay. Created with Vibe Coding.</p>
+            <p class="mt-2 text-xs">본 서비스는 YouTube Data API v3를 사용합니다.</p>
+        </div>
+    </footer>
+
+    <script>
+        // API 키 설정 (사용자의 키 적용됨)
+        const YOUTUBE_API_KEY = 'AIzaSyAGL5l27z-F1OxZ8eSPklwhMxmc1HEJ7Cw'; 
+
+        // DOM 요소 선택
+        const searchBtn = document.getElementById('searchBtn');
+        const vibeInput = document.getElementById('vibeInput');
+        const playlistGrid = document.getElementById('playlistGrid');
+        const loader = document.getElementById('loader');
+        const errorMsg = document.getElementById('errorMsg');
+        const errorText = errorMsg.querySelector('span');
+
+        // 에러 메시지 표시/숨기기 함수
+        function showError(message) {
+            errorText.textContent = message;
+            errorMsg.classList.remove('hidden');
+        }
+
+        function hideError() {
+            errorMsg.classList.add('hidden');
+        }
+
+        // 스트리밍 청크: 유튜브 데이터 검색 및 처리
+        async function fetchPlaylist() {
+            const query = vibeInput.value.trim();
+            
+            if (!query) {
+                showError("현재 기분이나 원하시는 상황을 입력해주세요!");
+                vibeInput.focus();
+                return;
+            }
+
+            // 검색어에 'playlist' 또는 '음악'을 붙여서 더 정확한 결과를 유도
+            const searchQuery = encodeURIComponent(query + ' playlist 노래 음악');
+            const apiUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=8&q=${searchQuery}&type=video&videoCategoryId=10&key=${YOUTUBE_API_KEY}`;
+
+            // 초기화 및 로딩 시작
+            hideError();
+            playlistGrid.innerHTML = '';
+            loader.classList.remove('hidden');
+            loader.classList.add('flex');
+
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error?.message || "유튜브 API 통신 중 오류가 발생했습니다.");
+                }
+
+                if (data.items.length === 0) {
+                    showError("검색 결과가 없습니다. 다른 검색어를 시도해 보세요.");
+                    return;
+                }
+
+                // 결과 렌더링
+                renderCards(data.items);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                showError("오류가 발생했습니다: " + error.message);
+            } finally {
+                // 로딩 종료
+                loader.classList.add('hidden');
+                loader.classList.remove('flex');
+            }
+        }
+
+        function renderCards(videos) {
+            videos.forEach(video => {
+                const snippet = video.snippet;
+                const videoId = video.id.videoId;
+                // 해상도 높은 썸네일 우선 사용
+                const thumbnailUrl = snippet.thumbnails.high ? snippet.thumbnails.high.url : snippet.thumbnails.default.url;
+                
+                // 카드 요소 생성
+                const card = document.createElement('a');
+                card.href = `https://www.youtube.com/watch?v=${videoId}`;
+                card.target = '_blank';
+                card.rel = 'noopener noreferrer';
+                card.className = 'bg-slate-800 border border-slate-700 rounded-xl overflow-hidden card-hover flex flex-col group block';
+                
+                // HTML 구조 삽입
+                card.innerHTML = `
+                    <div class="relative w-full aspect-video overflow-hidden">
+                        <img src="${thumbnailUrl}" alt="${snippet.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                        <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center">
+                            <i class="fa-solid fa-play text-white text-4xl opacity-0 group-hover:opacity-100 transition-opacity transform scale-50 group-hover:scale-100 duration-300"></i>
+                        </div>
+                    </div>
+                    <div class="p-5 flex-grow flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-white font-semibold text-base line-clamp-2 leading-snug mb-2 group-hover:text-violet-400 transition-colors" title="${snippet.title}">
+                                ${snippet.title}
+                            </h3>
+                            <p class="text-slate-400 text-sm flex items-center gap-2">
+                                <i class="fa-brands fa-youtube text-red-500"></i> ${snippet.channelTitle}
+                            </p>
+                        </div>
+                    </div>
+                `;
+                
+                playlistGrid.appendChild(card);
+            });
+        }
+
+        // 버튼 클릭 이벤트
+        searchBtn.addEventListener('click', fetchPlaylist);
+
+        // 엔터키 입력 이벤트
+        vibeInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                fetchPlaylist();
+            }
+        });
+    </script>
+</body>
+</html>
